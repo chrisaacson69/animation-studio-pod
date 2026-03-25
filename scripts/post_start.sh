@@ -16,7 +16,7 @@ echo "════════════════════════�
 # Auth directories are stored on /workspace so they survive pod
 # restarts. First login: run `claude login` and `gh auth login`
 # manually — they'll be saved automatically for next time.
-echo "[0/6] Restoring auth credentials..."
+echo "[0/7] Restoring auth credentials..."
 
 AUTH_DIRS=(
     ".claude"       # Claude Code auth
@@ -43,14 +43,14 @@ done
 
 # ── 1. Clone ComfyUI if not on network volume ───────────────
 if [ ! -d "$WORKSPACE/ComfyUI" ]; then
-    echo "[1/6] Cloning ComfyUI..."
+    echo "[1/7] Cloning ComfyUI..."
     git clone https://github.com/comfyanonymous/ComfyUI.git "$WORKSPACE/ComfyUI"
 else
-    echo "[1/6] ComfyUI — already present"
+    echo "[1/7] ComfyUI — already present"
 fi
 
 # ── 2. Install custom nodes if missing ──────────────────────
-echo "[2/6] Checking custom nodes..."
+echo "[2/7] Checking custom nodes..."
 CUSTOM_NODES_DIR="$WORKSPACE/ComfyUI/custom_nodes"
 mkdir -p "$CUSTOM_NODES_DIR"
 
@@ -71,7 +71,7 @@ for node in "${!NODES[@]}"; do
 done
 
 # ── 3. Ensure output directories ────────────────────────────
-echo "[3/6] Ensuring output directories..."
+echo "[3/7] Ensuring output directories..."
 mkdir -p "$WORKSPACE/media/videos" \
          "$WORKSPACE/media/images" \
          "$WORKSPACE/media/texts" \
@@ -83,7 +83,7 @@ mkdir -p "$WORKSPACE/media/videos" \
          "$WORKSPACE/studio/assets/music"
 
 # ── 4. Set up PATH persistently ─────────────────────────────
-echo "[4/6] Configuring PATH..."
+echo "[4/7] Configuring PATH..."
 PATHS_TO_ADD=(
     "/opt/rhubarb/Rhubarb-Lip-Sync-1.13.0-Linux"
     "$WORKSPACE"
@@ -97,11 +97,11 @@ for P in "${PATHS_TO_ADD[@]}"; do
 done
 
 # ── 5. Make workspace binaries executable ────────────────────
-echo "[5/6] Setting permissions..."
+echo "[5/7] Setting permissions..."
 [ -f "$WORKSPACE/youtubeuploader" ] && chmod +x "$WORKSPACE/youtubeuploader"
 
 # ── 6. Install save-auth helper ──────────────────────────────
-echo "[6/6] Installing save-auth helper..."
+echo "[6/7] Installing save-auth helper..."
 cat > /usr/local/bin/save-auth <<'SCRIPT'
 #!/usr/bin/env bash
 # Copies current auth state to the network volume so it persists.
@@ -127,15 +127,22 @@ echo "Done! Auth will be restored automatically on next boot."
 SCRIPT
 chmod +x /usr/local/bin/save-auth
 
+# ── 7. Start media server on port 8080 ───────────────────────
+echo "[7/7] Starting media server..."
+nohup python3 /opt/studio/media-server.py --port 8080 &> /var/log/media-server.log &
+echo "  Media server running on port 8080 (PID: $!)"
+
 echo ""
 echo "══════════════════════════════════════════════"
 echo "  Post-start complete!"
 echo "══════════════════════════════════════════════"
 echo ""
 echo "Ready to use:"
-echo "  python3 $WORKSPACE/ComfyUI/main.py --listen  # Start ComfyUI"
+echo "  python3 $WORKSPACE/ComfyUI/main.py --listen  # Start ComfyUI (port 8188)"
 echo "  claude                                         # Claude Code"
 echo "  rhubarb --version                              # Lip sync"
+echo "  Media server auto-started on port 8080"
+echo "  Fish Speech TTS available (python3 -m fish_speech)"
 echo ""
 echo "First-time setup (only once per pod):"
 echo "  claude login          # Auth with your Claude subscription"

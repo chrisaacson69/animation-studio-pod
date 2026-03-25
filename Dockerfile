@@ -77,6 +77,9 @@ RUN pip install --no-cache-dir \
     pytest-asyncio \
     websocket-client
 
+# ── Fish Speech TTS (character voiceovers) ───────────────────
+RUN pip install --no-cache-dir fish-speech
+
 # ── Node.js + Claude Code ───────────────────────────────────
 RUN curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - \
     && apt-get install -y nodejs \
@@ -90,6 +93,9 @@ RUN cd /tmp \
     && chmod +x /opt/rhubarb/Rhubarb-Lip-Sync-1.13.0-Linux/rhubarb \
     && ln -s /opt/rhubarb/Rhubarb-Lip-Sync-1.13.0-Linux/rhubarb /usr/local/bin/rhubarb \
     && rm Rhubarb-Lip-Sync-1.13.0-Linux.zip
+
+# ── Media server ─────────────────────────────────────────────
+COPY scripts/media-server.py /opt/studio/media-server.py
 
 # ── post_start.sh (runs on every pod boot) ──────────────────
 COPY scripts/post_start.sh /post_start.sh
