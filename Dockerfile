@@ -12,6 +12,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     libcairo2-dev \
     libpango1.0-dev \
+    portaudio19-dev \
     pkg-config \
     texlive-base \
     texlive-latex-extra \
