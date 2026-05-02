@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html><head><title>Mouth Marker</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:sans-serif;background:#1a1a2e;color:#e0e0e0;padding:1rem}
+h1{color:#f39c12;margin-bottom:0.5rem}
+.info{color:#888;margin-bottom:1rem;font-size:0.9rem}
+.wrap{display:flex;gap:2rem;align-items:flex-start}
+canvas{border:2px solid #444;cursor:crosshair}
+.panel{min-width:320px}
+.panel label{display:block;margin:0.4rem 0 0.1rem;color:#aaa;font-size:0.9rem}
+.panel input[type=text]{width:100%;padding:0.4rem;background:#16213e;color:#e0e0e0;border:1px solid #444;border-radius:4px;font-size:0.9rem}
+.panel button{margin:0.5rem 0.5rem 0 0;padding:0.5rem 1rem;background:#2ecc71;color:#000;border:none;border-radius:4px;cursor:pointer}
+.panel button.reset{background:#e74c3c}
+.step{color:#2ecc71;font-weight:bold;font-size:1.1rem;margin:0.8rem 0}
+pre{background:#16213e;padding:1rem;border-radius:4px;margin-top:0.5rem;font-size:0.85rem;white-space:pre-wrap;user-select:all}
+#points{font-size:0.9rem;color:#aaa;margin-bottom:0.5rem}
+.chars{margin-top:1rem;color:#666;font-size:0.85rem}
+.chars p{margin:0.2rem 0}
+</style></head><body>
+<h1>Mouth Bounding Box Marker</h1>
+<p class="info">1. Paste image URL &amp; Load. 2. Click TOP of mouth. 3. Click BOTTOM. 4. Click LEFT edge. 5. Click RIGHT edge. Green ellipse preview appears. Copy the command.</p>
+<div class="wrap">
+<div><canvas id="c" width="768" height="1024"></canvas></div>
+<div class="panel">
+<label>Image URL (right-click image in media server &gt; Copy image address):</label>
+<input type="text" id="url" placeholder="Paste URL here">
+<button id="lb">Load</button>
+
+<div class="step" id="step">Load an image first</div>
+<div id="points"></div>
+
+<label>Pod path to base.png:</label>
+<input type="text" id="pp" value="/workspace/studio/assets/characters/aristotle/base.png">
+<button id="gen">Copy Command</button>
+<button class="reset" id="rst">Reset Points</button>
+<pre id="out">Mark all 4 points first</pre>
+
+<div class="chars">
+<p><b>Characters:</b></p>
+<p>/workspace/studio/assets/characters/aristotle/base.png</p>
+<p>/workspace/studio/assets/characters/socrates/base.png</p>
+<p>/workspace/studio/assets/characters/heraclitus/base.png</p>
+<p>/workspace/studio/assets/characters/sophist/base.png</p>
+</div>
+</div>
+</div>
+<script>
+var c = document.getElementById("c");
+var ctx = c.getContext("2d");
+var img = null, sc = 1;
+var pts = {top: null, bot: null, left: null, right: null};
+var order = ["top", "bot", "left", "right"];
+var labels = ["TOP of mouth", "BOTTOM of mouth", "LEFT edge of mouth", "RIGHT edge of mouth"];
+var colors = {top: "#e74c3c", bot: "#e74c3c", left: "#3498db", right: "#3498db"};
+var step = 0;
+
+document.getElementById("lb").onclick = function() {
+    img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = function() {
+        sc = Math.min(1, 850 / img.height);
+        c.width = Math.round(img.width * sc);
+        c.height = Math.round(img.height * sc);
+        doReset();
+        draw();
+        // Auto-update pod path from image URL
+        var url = document.getElementById("url").value;
+        var match = url.match(/assets\/characters\/([^/]+)\//);
+        if (match) {
+            document.getElementById("pp").value = "/workspace/studio/assets/characters/" + match[1] + "/base.png";
+        }
+    };
+    img.onerror = function() {
+        document.getElementById("step").textContent = "Failed to load image. Check URL.";
+    };
+    img.src = document.getElementById("url").value;
+};
+
+function doReset() {
+    pts = {top: null, bot: null, left: null, right: null};
+    step = 0;
+    updStep();
+    updPoints();
+    updCmd();
+}
+
+document.getElementById("rst").onclick = function() { doReset(); draw(); };
+
+function draw() {
+    if (!img) return;
+    ctx.clearRect(0, 0, c.width, c.height);
+    ctx.drawImage(img, 0, 0, c.width, c.height);
+
+    // Draw marked points and guide lines
+    var k, p, x, y;
+    for (k in pts) {
+        p = pts[k];
+        if (!p) continue;
+        x = p[0] * sc;
+        y = p[1] * sc;
+        ctx.fillStyle = colors[k];
+        ctx.beginPath();
+        ctx.arc(x, y, 5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = colors[k];
+        ctx.lineWidth = 1;
+        ctx.setLineDash([5, 5]);
+        if (k === "top" || k === "bot") {
+            ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(c.width, y); ctx.stroke();
+        }
+        if (k === "left" || k === "right") {
+            ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, c.height); ctx.stroke();
+        }
+        ctx.setLineDash([]);
+    }
+
+    // Draw ellipse preview when all 4 points marked
+    if (pts.top && pts.bot && pts.left && pts.right) {
+        var cx = (pts.left[0] + pts.right[0]) / 2 * sc;
+        var cy = (pts.top[1] + pts.bot[1]) / 2 * sc;
+        var hw = (pts.right[0] - pts.left[0]) / 2 * sc;
+        var hh = (pts.bot[1] - pts.top[1]) / 2 * sc;
+        ctx.strokeStyle = "#2ecc71";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.ellipse(cx, cy, Math.abs(hw), Math.abs(hh), 0, 0, Math.PI * 2);
+        ctx.stroke();
+        // Center dot
+        ctx.fillStyle = "#f39c12";
+        ctx.beginPath();
+        ctx.arc(cx, cy, 4, 0, Math.PI * 2);
+        ctx.fill();
+    }
+}
+
+c.onclick = function(e) {
+    if (!img || step >= 4) return;
+    var r = c.getBoundingClientRect();
+    var x = Math.round((e.clientX - r.left) / sc);
+    var y = Math.round((e.clientY - r.top) / sc);
+    pts[order[step]] = [x, y];
+    step++;
+    updStep();
+    updPoints();
+    updCmd();
+    draw();
+};
+
+function updStep() {
+    var el = document.getElementById("step");
+    if (step < 4) {
+        el.textContent = "Step " + (step + 1) + ": Click " + labels[step];
+    } else {
+        el.textContent = "Done! Green ellipse shows the mouth area. Copy the command below.";
+    }
+}
+
+function updPoints() {
+    var s = "", i, k;
+    for (i = 0; i < 4; i++) {
+        k = order[i];
+        if (pts[k]) s += k + ": (" + pts[k][0] + ", " + pts[k][1] + ")  ";
+    }
+    document.getElementById("points").textContent = s;
+}
+
+function updCmd() {
+    var el = document.getElementById("out");
+    if (!pts.top || !pts.bot || !pts.left || !pts.right) {
+        el.textContent = "Mark all 4 points first";
+        return;
+    }
+    var x1 = pts.left[0], y1 = pts.top[1];
+    var w = pts.right[0] - pts.left[0], h = pts.bot[1] - pts.top[1];
+    var box = x1 + "," + y1 + "," + w + "," + h;
+    var p = document.getElementById("pp").value;
+    var d = p.substring(0, p.lastIndexOf("/"));
+    el.textContent = "python3 /workspace/project/make_mouth_overlays.py \\\n  \"" + p + "\" \\\n  \"" + d + "\" \\\n  " + box;
+}
+
+document.getElementById("gen").onclick = function() {
+    var el = document.getElementById("out");
+    if (navigator.clipboard) navigator.clipboard.writeText(el.textContent);
+    el.style.border = "2px solid #2ecc71";
+    setTimeout(function() { el.style.border = "none"; }, 500);
+};
+</script>
+</body></html>
